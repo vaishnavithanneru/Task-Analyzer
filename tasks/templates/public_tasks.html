@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>All Tasks - Public View</title>
+  <style>
+    body { font-family: Arial; background: #1e1b4b; color: white; padding: 40px; text-align: center; }
+    h1 { font-size: 2.5rem; margin-bottom: 2rem; }
+    .task { background: #4c1d95; margin: 20px auto; padding: 25px; border-radius: 20px; max-width: 600px; }
+    .empty { font-size: 1.8rem; opacity: 0.8; margin-top: 100px; }
+  </style>
+</head>
+<body>
+  <h1>All Tasks in Database (Public View)</h1>
+  {% if tasks %}
+    {% for task in tasks %}
+      <div class="task">
+        <h3>{{ task.title }}</h3>
+        <p>Due: <strong>{{ task.due_date|default:"No deadline" }}</strong> | 
+           Hours: <strong>{{ task.estimated_hours }}</strong> | 
+           Importance: <strong>{{ task.importance }}/10</strong></p>
+      </div>
+    {% endfor %}
+  {% else %}
+    <div class="empty">No tasks in database yet</div>
+  {% endif %}
+</body>
+</html>

@@ -1,0 +1,117 @@
+# tasks/views.py
+from rest_framework.decorators import api_view
+from rest_framework.response import Response   # ← This fixes "Response not defined"
+from rest_framework import status
+from .models import Task
+from .scoring import calculate_priority_score
+from .serializers import TaskInputSerializer
+from django.http import JsonResponse
+import json
+from django.http import HttpResponse
+from django.shortcuts import render
+import os
+from django.conf import settings
+
+# Existing endpoints (keep them)
+@api_view(['POST'])
+def analyze_tasks(request):
+    serializer = TaskInputSerializer(data=request.data, many=True)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=400)
+
+    tasks = serializer.validated_data
+    strategy = request.query_params.get('strategy', 'smart_balance')
+
+    for i, task in enumerate(tasks):
+        if not task.get('id'):
+            task['id'] = f"temp_{i}"
+
+    results = []
+    for task in tasks:
+        result = calculate_priority_score(task, strategy, tasks)
+        results.append({
+            **task,
+            "score": result["score"],
+            "explanation": result["explanation"]
+        })
+
+    sorted_tasks = sorted(results, key=lambda x: x["score"], reverse=True)
+    return Response(sorted_tasks)
+
+
+@api_view(['POST'])
+def suggest_today(request):
+    serializer = TaskInputSerializer(data=request.data, many=True)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=400)
+
+    tasks = serializer.validated_data
+    for i, task in enumerate(tasks):
+        if not task.get('id'):
+            task['id'] = f"temp_{i}"
+
+    scored = []
+    for task in tasks:
+        res = calculate_priority_score(task, "smart_balance", tasks)
+        task_copy = dict(task)
+        task_copy.update({"score": res["score"], "explanation": res["explanation"]})
+        scored.append(task_copy)
+
+    top_3 = sorted(scored, key=lambda x: x["score"], reverse=True)[:3]
+    suggestions = [
+        {"rank": i+1, "title": t["title"], "why": t["explanation"], "score": t["score"]}
+        for i, t in enumerate(top_3)
+    ]
+    return Response({"today_suggestions": suggestions})
+
+
+# NEW ENDPOINTS – Add these at the bottom
+@api_view(['POST'])
+def create_task(request):
+    serializer = TaskInputSerializer(data=request.data)
+    if serializer.is_valid():
+        Task.objects.create(**serializer.validated_data)
+        return Response({"status": "Task added!"}, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+def all_tasks(request):
+    tasks = Task.objects.all()
+    data = []
+    for t in tasks:
+        data.append({
+            "id": t.id,
+            "title": t.title,
+            "due_date": t.due_date.isoformat() if t.due_date else None,
+            "estimated_hours": t.estimated_hours,
+            "importance": t.importance,
+        })
+    return Response(data)
+@api_view(['DELETE'])
+def delete_task(request, task_id):
+    try:
+        task = Task.objects.get(id=task_id)
+        task.delete()
+        return Response({"status": "deleted"}, status=204)
+    except Task.DoesNotExist:
+        return Response({"error": "Task not found"}, status=404)
+    
+def serve_frontend(request, path=''):
+    if not path or path == 'index.html':
+        file_path = os.path.join(settings.BASE_DIR, 'frontend', 'index.html')
+    else:
+        file_path = os.path.join(settings.BASE_DIR, 'frontend', path)
+    
+    if os.path.exists(file_path):
+        with open(file_path, 'rb') as f:
+            content_type = 'text/html'
+            if path.endswith('.css'): content_type = 'text/css'
+            if path.endswith('.js'): content_type = 'application/javascript'
+            return HttpResponse(f.read(), content_type=content_type)
+    return HttpResponse("Not found", status=404)
+
+# PUBLIC TASK LIST VIEW
+def public_task_list(request):
+    tasks = Task.objects.all().order_by('-id')
+    return render(request, 'public_tasks.html', {'tasks': tasks})

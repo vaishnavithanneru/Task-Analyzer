@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Smart Task Analyzer</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Smart Task Analyzer</h1>
+      <p>Let decide what you should do next</p>
+    </header>
+
+    <div class="controls">
+      <select id="strategy">
+        <option value="smart_balance">Smart Balance (Recommended)</option>
+        <option value="fastest_wins">Fastest Wins</option>
+        <option value="high_impact">High Impact</option>
+        <option value="deadline_driven">Deadline Driven</option>
+      </select>
+      <button onclick="loadTasks()">Refresh</button>
+      <button class="suggest-btn" onclick="suggestToday()">Top 3 Today</button>
+      
+      <!-- THIS IS THE MAGIC BUTTON -->
+      <button onclick="window.open('/public-tasks/', '_blank')"
+              style="background:#8b5cf6; padding:14px 20px; border:none; border-radius:50px; color:white; font-weight:bold; cursor:pointer; box-shadow:0 8px 20px rgba(139,92,246,0.4);">
+        Show All Saved Tasks (Database View)
+      </button>
+    </div>
+
+    <!-- Add Task Form -->
+    <div class="add-task card">
+      <h2>Add New Task</h2>
+      <div class="form-grid">
+        <input type="text" id="title" placeholder="Task title..." required />
+        <input type="date" id="due_date" placeholder="dd-mm-yyyy" />
+        <input type="number" id="estimated_hours" placeholder="Hours" min="1" value="0" />
+        <select id="importance">
+          <option value="0" selected>Select an Importance Value(0)</option>
+          <option value="10">Critical (10)</option>
+          <option value="8">High (8)</option>
+          <option value="6" >Medium (6)</option>
+          <option value="4">Low (4)</option>
+          <option value="2">Minor (2)</option>
+        </select>
+        <button onclick="addTask()" class="add-btn">Add Task</button>
+      </div>
+    </div>
+
+    <div id="suggestions"></div>
+    <div id="results" class="task-list"></div>
+
+    <footer>
+      Smart Task Analyzer • All tasks saved to database permanently<br>
+      <small>Click the purple button above to see raw database</small>
+    </footer>
+  </div>
+
+  <script src="/script.js" defer></script>
+</body>
+</html>
