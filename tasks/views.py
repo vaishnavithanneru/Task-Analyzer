@@ -47,15 +47,13 @@ def suggest_today(request):
         return Response(serializer.errors, status=400)
 
     tasks = serializer.validated_data
-    strategy = request.data.get('strategy', 'smart_balance')  # ← NOW READS FROM BODY!
-
     for i, task in enumerate(tasks):
         if not task.get('id'):
             task['id'] = f"temp_{i}"
 
     scored = []
     for task in tasks:
-        res = calculate_priority_score(task, strategy, tasks)  # ← USES USER'S STRATEGY!
+        res = calculate_priority_score(task, "smart_balance", tasks)
         task_copy = dict(task)
         task_copy.update({"score": res["score"], "explanation": res["explanation"]})
         scored.append(task_copy)
@@ -113,31 +111,7 @@ def serve_frontend(request, path=''):
             return HttpResponse(f.read(), content_type=content_type)
     return HttpResponse("Not found", status=404)
 
-# PUBLIC TASK LIST VIEW
-# ALSO UPDATE public_task_list() TO SHOW CURRENT STRATEGY
+# PUBLIC TASK LIST — THIS SHOWS ALL TASKS
 def public_task_list(request):
     tasks = Task.objects.all().order_by('-id')
-    strategy = request.GET.get('strategy', 'smart_balance')  # Read from URL
-    
-    # Re-score tasks with current strategy
-    task_list = []
-    for t in tasks:
-        task_data = {
-            'id': t.id,
-            'title': t.title,
-            'due_date': t.due_date.isoformat() if t.due_date else None,
-            'estimated_hours': t.estimated_hours,
-            'importance': t.importance,
-            'dependencies': []
-        }
-        score_info = calculate_priority_score(task_data, strategy, [task_data])
-        task_list.append({
-            'task': t,
-            'score': score_info['score'],
-            'explanation': score_info['explanation']
-        })
-
-    return render(request, 'public_tasks.html', {
-        'tasks': task_list,
-        'strategy': strategy.title().replace('_', ' ')
-    })
+    return render(request, 'public_tasks.html', {'tasks': tasks})
