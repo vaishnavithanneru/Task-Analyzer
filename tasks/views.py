@@ -94,10 +94,43 @@ def suggest_today(request):
 def create_task(request):
     serializer = TaskInputSerializer(data=request.data)
     if serializer.is_valid():
-        Task.objects.create(**serializer.validated_data)
-        return Response({"status": "Task added!"}, status=status.HTTP_201_CREATED)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
+        task = Task.objects.create(**serializer.validated_data)
+        
+        # Get current strategy from frontend (or default)
+        strategy = request.data.get('strategy', 'smart_balance')
+        
+        # Get all tasks to check dependencies
+        all_tasks_data = []
+        for t in Task.objects.all():
+            all_tasks_data.append({
+                'id': str(t.id),
+                'title': t.title,
+                'due_date': t.due_date.isoformat() if t.due_date else None,
+                'estimated_hours': t.estimated_hours,
+                'importance': t.importance,
+                'dependencies': []  # or load real dependencies if you have them
+            })
+        
+        # Convert new task to dict
+        new_task_data = {
+            'id': str(task.id),
+            'title': task.title,
+            'due_date': task.due_date.isoformat() if task.due_date else None,
+            'estimated_hours': task.estimated_hours,
+            'importance': task.importance,
+            'dependencies': []
+        }
+        
+        # CALCULATE REAL SCORE
+        result = calculate_priority_score(new_task_data, strategy, all_tasks_data)
+        
+        return Response({
+            "status": "Task added!",
+            "score": result["score"],
+            "explanation": result["explanation"]
+        }, status=201)
+    
+    return Response(serializer.errors, status=400)
 
 @api_view(['GET'])
 def all_tasks(request):

@@ -1,43 +1,28 @@
 const API = '/api/tasks';
 
-async function addTask() {
-  const task = {
-    title: document.getElementById('title').value.trim(),
-    due_date: document.getElementById('due_date').value || null,
-    estimated_hours: parseInt(document.getElementById('estimated_hours').value) || 0,
-    importance: parseInt(document.getElementById('importance').value) || 0,
-    dependencies: []
-  };
+function addTask() {
+    const title = document.getElementById("title").value.trim();
+    const due_date = document.getElementById("due_date").value;
+    const estimated_hours = document.getElementById("estimated_hours").value;
+    const importance = document.getElementById("importance").value;
 
-  if (!task.title) return alert("Enter a title!");
+    if (!title) {
+        alert("Please enter a task title");
+        return;
+    }
 
-  // SEND STRATEGY SO BACKEND CAN CALCULATE REAL SCORE
-  const strategy = document.getElementById('strategy').value;
+    // Your saving API code or fetch() here...
 
-  const response = await fetch('/api/tasks/create/', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...task, strategy: strategy })
-  });
+    // ✅ CLEAR INPUT FIELDS
+    document.getElementById("title").value = "";
+    document.getElementById("due_date").value = "";
+    document.getElementById("estimated_hours").value = 0;
+    document.getElementById("importance").value = 0;
 
-  const data = await response.json();
-
-  // SHOW REAL SCORE & EXPLANATION
-  alert(
-    `Task Added!\n\n` +
-    `Score: ${Math.round(data.score)}\n` +
-    `Reason: ${data.explanation.replace(/; /g, '\n• ')}`
-  );
-
-  // Reset form
-  document.getElementById('title').value = '';
-  document.getElementById('due_date').value = '';
-  document.getElementById('estimated_hours').value = '0';
-  document.getElementById('importance').value = '0';
-  document.getElementById('title').focus();
-
-  loadTasks();
+    // Refresh task list
+    loadTasks();
 }
+
 function openPublicTasks() {
   // This opens the public page and forces a fresh reload (no cache!)
   window.open('/public-tasks/?t=' + Date.now(), '_blank');

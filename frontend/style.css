@@ -88,8 +88,16 @@ input, select {
 .add-btn {
   background: var(--success) !important;
   grid-column: 1 / -1;
+  padding: 18px;
   font-size: 18px !important;
+  border-radius: 16px !important;
+  box-shadow: 0 8px 20px rgba(16,185,129,0.35);
 }
+.add-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px rgba(16,185,129,0.42);
+}
+
 
 .task-list { display: grid; gap: 1.2rem; }
 
