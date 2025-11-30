@@ -5,22 +5,37 @@ async function addTask() {
     title: document.getElementById('title').value.trim(),
     due_date: document.getElementById('due_date').value || null,
     estimated_hours: parseInt(document.getElementById('estimated_hours').value) || 0,
-    importance: parseInt(document.getElementById('importance').value),
+    importance: parseInt(document.getElementById('importance').value) || 0,
     dependencies: []
   };
 
   if (!task.title) return alert("Enter a title!");
 
-  await fetch(`${API}/create/`, {
+  // SEND STRATEGY SO BACKEND CAN CALCULATE REAL SCORE
+  const strategy = document.getElementById('strategy').value;
+
+  const response = await fetch('/api/tasks/create/', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(task)
+    body: JSON.stringify({ ...task, strategy: strategy })
   });
 
+  const data = await response.json();
+
+  // SHOW REAL SCORE & EXPLANATION
+  alert(
+    `Task Added!\n\n` +
+    `Score: ${Math.round(data.score)}\n` +
+    `Reason: ${data.explanation.replace(/; /g, '\n• ')}`
+  );
+
+  // Reset form
   document.getElementById('title').value = '';
-  document.getElementById('due_date').value = '';           // clears date completely
-  document.getElementById('estimated_hours').value = '0';   // back to 2 hours
+  document.getElementById('due_date').value = '';
+  document.getElementById('estimated_hours').value = '0';
   document.getElementById('importance').value = '0';
+  document.getElementById('title').focus();
+
   loadTasks();
 }
 function openPublicTasks() {
