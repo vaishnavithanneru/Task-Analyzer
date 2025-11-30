@@ -40,8 +40,7 @@ def analyze_tasks(request):
 
 
 
-# REPLACE YOUR OLD suggest_today() WITH THIS ONE
-# ...existing code...
+
 @api_view(['POST'])
 def suggest_today(request):
     # Accept either:
@@ -88,7 +87,7 @@ def suggest_today(request):
         for i, t in enumerate(top_3)
     ]
     return Response({"today_suggestions": suggestions})
-# ...existing code...
+
 
 # NEW ENDPOINTS – Add these at the bottom
 @api_view(['POST'])
