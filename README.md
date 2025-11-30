@@ -29,9 +29,12 @@ Smart Task Analyzer is a Django + JS + Python + HTML + CSS app that computes pri
    python manage.py migrate
    python manage.py runserver
    ```
-5. Open browser:
+5. Open browser to run locally in my laptop only it works:
    - App: http://127.0.0.1:8000/
    - Public tasks: http://127.0.0.1:8000/public-tasks/
+
+6. Deployment link : 
+   - App : https://smart-task-analyzer-8-5or4.onrender.com //Here To access the app anyone
 
 ## Important API endpoints
 - GET /api/tasks/all/ — all saved tasks
