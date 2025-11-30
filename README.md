@@ -62,24 +62,43 @@ Fork, create a branch, add tests, and open a PR.
 smart-task-analyzer/
 
 ├─ backend/ (Django project)
+
 │ ├─ tasks/
+
 │ │ ├─ views.py
+
 │ │ ├─ models.py
+
 │ │ ├─ scoring.py
+
 │ │ └─ serializers.py
+
 │ ├─ manage.py
+
 │ └─ ...django settings/apps...
+
 ├─ frontend/
+
 │ ├─ index.html
+
 │ ├─ public_tasks.html
+
 │ ├─ script.js
+
 │ └─ public_script.js
+
 ├─ docs/
+
 │ ├─ explanation.md ← explanation file you mentioned
+
 │ └─ screenshots/
+
 │ ├─ screen1.png
+
 │ └─ screen2.png
+
 ├─ requirements.txt
+
 └─ README.md
 
 
