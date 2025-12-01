@@ -34,7 +34,7 @@ Smart Task Analyzer is a Django + JS + Python + HTML + CSS app that computes pri
    - Public tasks: http://127.0.0.1:8000/public-tasks/
 
 6. Deployment link : 
-   - App : https://smart-task-analyzer-8-5or4.onrender.com //Here To access the app anyone
+   - App : https://task-analyzer-1-ccir.onrender.com/ //Here To access the app anyone
 
 ## Important API endpoints
 - GET /api/tasks/all/ — all saved tasks
