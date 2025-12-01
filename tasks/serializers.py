@@ -1,9 +1,21 @@
 from rest_framework import serializers
+from .models import Task
 
-class TaskInputSerializer(serializers.Serializer):
-    id = serializers.CharField(required=False, allow_blank=True)
-    title = serializers.CharField(max_length=200)
-    due_date = serializers.CharField(required=False, allow_null=True, allow_blank=True)
-    estimated_hours = serializers.IntegerField(min_value=1, default=1)
-    importance = serializers.IntegerField(min_value=1, max_value=10, default=5)
-    dependencies = serializers.JSONField(default=list)
+class TaskSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Task
+        fields = ['id', 'title', 'due_date', 'estimated_hours', 'importance', 'dependencies']
+        read_only_fields = ['id']
+
+    # ← THIS IS THE FIX — ADD THESE 2 METHODS
+    def create(self, validated_data):
+        return Task.objects.create(**validated_data)
+
+    def update(self, instance, validated_data):
+        instance.title = validated_data.get('title', instance.title)
+        instance.due_date = validated_data.get('due_date', instance.due_date)
+        instance.estimated_hours = validated_data.get('estimated_hours', instance.estimated_hours)
+        instance.importance = validated_data.get('importance', instance.importance)
+        instance.dependencies = validated_data.get('dependencies', instance.dependencies)
+        instance.save()
+        return instance

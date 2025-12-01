@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>All Saved Tasks - Database View</title>
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; background: #1a1a2e; color: #eee; padding: 40px; }
+    h1 { text-align: center; color: #8b5cf6; margin-bottom: 30px; }
+    .task { background: #16213e; padding: 20px; margin: 15px 0; border-radius: 12px; border-left: 5px solid #8b5cf6; }
+    .empty { text-align: center; font-size: 1.4rem; opacity: 0.7; margin-top: 50px; }
+    button { padding: 12px 24px; background: #8b5cf6; color: white; border: none; border-radius: 50px; cursor: pointer; font-weight: bold; }
+    .header { text-align: center; margin-bottom: 40px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>All Tasks Saved in Database</h1>
+    <p>Permanent storage • Never lost • Even if you clear the main app</p>
+    <button onclick="location.reload()">Refresh List</button>
+  </div>
+
+  <div id="tasks"></div>
+
+  <script>
+    fetch("/api/tasks/")
+      .then(r => r.json())
+      .then(tasks => {
+        const container = document.getElementById("tasks");
+        if (tasks.length === 0) {
+          container.innerHTML = "<div class='empty'>No tasks in database yet.</div>";
+          return;
+        }
+        container.innerHTML = tasks.map(t => `
+          <div class="task">
+            <strong>${t.title}</strong><br>
+            Due: ${t.due_date || "No deadline"} | 
+            Effort: ${t.estimated_hours}h | 
+            Importance: ${t.importance}/10<br>
+            <small>ID: ${t.id} • Score: ${Math.round(t.score || 0)}</small>
+          </div>
+        `).join("");
+      });
+  </script>
+</body>
+</html>

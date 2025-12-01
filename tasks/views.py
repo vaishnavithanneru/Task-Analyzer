@@ -1,198 +1,93 @@
-# tasks/views.py
 from rest_framework.decorators import api_view
-from rest_framework.response import Response   # ← This fixes "Response not defined"
+from rest_framework.response import Response
 from rest_framework import status
-from .models import Task
 from .scoring import calculate_priority_score
-from .serializers import TaskInputSerializer
-from django.http import JsonResponse
-import json
-from django.http import HttpResponse
-from django.shortcuts import render
-import os
-from django.conf import settings
+from .serializers import TaskSerializer
+from datetime import date
+from .models import Task
+from .serializers import TaskSerializer
 
-# Existing endpoints (keep them)
 @api_view(['POST'])
 def analyze_tasks(request):
-    serializer = TaskInputSerializer(data=request.data, many=True)
-    if not serializer.is_valid():
-        return Response(serializer.errors, status=400)
-
-    tasks = serializer.validated_data
     strategy = request.query_params.get('strategy', 'smart_balance')
+    tasks_data = request.data
 
-    for i, task in enumerate(tasks):
-        if not task.get('id'):
-            task['id'] = f"temp_{i}"
+    if not isinstance(tasks_data, list):
+        return Response({"error": "Expected a list of tasks"}, status=400)
 
-    results = []
-    for task in tasks:
-        result = calculate_priority_score(task, strategy, tasks)
-        results.append({
-            **task,
-            "score": result["score"],
-            "explanation": result["explanation"]
-        })
+    enriched_tasks = []
+    for task in tasks_data:
+        try:
+            task_copy = task.copy()
+            task_copy.setdefault('id', id(task))
+            score = calculate_priority_score(task_copy, strategy, tasks_data)
 
-    sorted_tasks = sorted(results, key=lambda x: x["score"], reverse=True)
-    return Response(sorted_tasks)
+            explanation_parts = []
+            if task.get("due_date") and task["due_date"] < date.today():
+                explanation_parts.append("OVERDUE")
+            if task.get("importance", 5) >= 8:
+                explanation_parts.append("High importance")
+            if task.get("estimated_hours", 1) <= 2:
+                explanation_parts.append("Quick win")
+            if any(task_copy['id'] in (t.get("dependencies") or []) for t in tasks_data):
+                explanation_parts.append("Blocks other tasks")
 
+            explanation = ", ".join(explanation_parts) or "Balanced priority"
 
+            task_copy["score"] = score
+            task_copy["explanation"] = explanation
+            enriched_tasks.append(task_copy)
+        except Exception as e:
+            continue  # Skip invalid tasks gracefully
 
+    enriched_tasks.sort(key=lambda x: x["score"], reverse=True)
 
-@api_view(['POST'])
-def suggest_today(request):
-    # Accept either:
-    #  - JSON array in body (old frontend): request.data is a list of tasks
-    #  - JSON object: { "tasks": [...], "strategy": "..." }
-    raw = request.data
+    serializer = TaskSerializer(enriched_tasks, many=True)
+    return Response(serializer.data)
 
-    # Determine tasks_payload and strategy safely
-    if isinstance(raw, dict):
-        tasks_payload = raw.get('tasks') or raw.get('data') or raw.get('tasks_list')
-        # If no nested list found, maybe user POSTed a single task dict -> wrap it
-        if tasks_payload is None:
-            # If dict looks like a task (has title or importance), wrap it
-            if any(k in raw for k in ('title', 'importance', 'estimated_hours', 'due_date')):
-                tasks_payload = [raw]
-            else:
-                tasks_payload = []
-        strategy = raw.get('strategy') or request.query_params.get('strategy', 'smart_balance')
-    else:
-        # raw is likely a list (the frontend sends an array)
-        tasks_payload = raw
-        strategy = request.query_params.get('strategy', 'smart_balance')
-
-    serializer = TaskInputSerializer(data=tasks_payload, many=True)
-    if not serializer.is_valid():
-        return Response(serializer.errors, status=400)
-
-    tasks = serializer.validated_data
-
-    for i, task in enumerate(tasks):
-        if not task.get('id'):
-            task['id'] = f"temp_{i}"
-
-    scored = []
-    for task in tasks:
-        res = calculate_priority_score(task, strategy, tasks)
-        task_copy = dict(task)
-        task_copy.update({"score": res["score"], "explanation": res["explanation"]})
-        scored.append(task_copy)
-
-    top_3 = sorted(scored, key=lambda x: x["score"], reverse=True)[:3]
-    suggestions = [
-        {"rank": i+1, "title": t["title"], "why": t["explanation"], "score": t["score"]}
-        for i, t in enumerate(top_3)
-    ]
-    return Response({"today_suggestions": suggestions})
-
-
-# NEW ENDPOINTS – Add these at the bottom
-@api_view(['POST'])
-def create_task(request):
-    serializer = TaskInputSerializer(data=request.data)
-    if serializer.is_valid():
-        task = Task.objects.create(**serializer.validated_data)
-        
-        # Get current strategy from frontend (or default)
-        strategy = request.data.get('strategy', 'smart_balance')
-        
-        # Get all tasks to check dependencies
-        all_tasks_data = []
-        for t in Task.objects.all():
-            all_tasks_data.append({
-                'id': str(t.id),
-                'title': t.title,
-                'due_date': t.due_date.isoformat() if t.due_date else None,
-                'estimated_hours': t.estimated_hours,
-                'importance': t.importance,
-                'dependencies': []  # or load real dependencies if you have them
-            })
-        
-        # Convert new task to dict
-        new_task_data = {
-            'id': str(task.id),
-            'title': task.title,
-            'due_date': task.due_date.isoformat() if task.due_date else None,
-            'estimated_hours': task.estimated_hours,
-            'importance': task.importance,
-            'dependencies': []
-        }
-        
-        # CALCULATE REAL SCORE
-        result = calculate_priority_score(new_task_data, strategy, all_tasks_data)
-        
-        return Response({
-            "status": "Task added!",
-            "score": result["score"],
-            "explanation": result["explanation"]
-        }, status=201)
-    
-    return Response(serializer.errors, status=400)
 
 @api_view(['GET'])
-def all_tasks(request):
+def suggest_today(request):
+    # In real app: fetch from DB. Here: return mock top 3
+    mock_suggestions = [
+        {"title": "Fix critical production bug", "explanation": "OVERDUE, High importance, Blocks deployment"},
+        {"title": "Reply to client email", "explanation": "Due today, High importance"},
+        {"title": "Update README", "explanation": "Quick win, Low effort"}
+    ]
+    return Response(mock_suggestions[:3])
+
+# views.py (add these)
+@api_view(['GET'])
+def task_list(request):
     tasks = Task.objects.all()
-    data = []
-    for t in tasks:
-        data.append({
-            "id": t.id,
-            "title": t.title,
-            "due_date": t.due_date.isoformat() if t.due_date else None,
-            "estimated_hours": t.estimated_hours,
-            "importance": t.importance,
-        })
-    return Response(data)
+    serialized = TaskSerializer(tasks, many=True)
+    enriched = []
+    for item in serialized.data:
+        item["score"] = calculate_priority_score(item, "smart_balance", serialized.data)
+        item["explanation"] = "Smart priority"
+        enriched.append(item)
+    enriched.sort(key=lambda x: x["score"], reverse=True)
+    return Response(enriched)
+
+@api_view(['POST'])
+def create_task(request):
+    serializer = TaskSerializer(data=request.data)
+    if serializer.is_valid():
+        task = Task.objects.create(**serializer.validated_data)
+        return Response(TaskSerializer(task).data, status=201)
+    return Response(serializer.errors, status=400)
+@api_view(['POST'])
+def add_task(request):
+    serializer = TaskSerializer(data=request.data)
+    if serializer.is_valid():
+        serializer.save()  # ← THIS SAVES TO db.sqlite3 PERMANENTLY
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 @api_view(['DELETE'])
-def delete_task(request, task_id):
+def delete_task(request, pk):  # ← Name it delete_task
     try:
-        task = Task.objects.get(id=task_id)
+        task = Task.objects.get(pk=pk)
         task.delete()
-        return Response({"status": "deleted"}, status=204)
+        return Response(status=status.HTTP_204_NO_CONTENT)
     except Task.DoesNotExist:
-        return Response({"error": "Task not found"}, status=404)
-    
-def serve_frontend(request, path=''):
-    if not path or path == 'index.html':
-        file_path = os.path.join(settings.BASE_DIR, 'frontend', 'index.html')
-    else:
-        file_path = os.path.join(settings.BASE_DIR, 'frontend', path)
-    
-    if os.path.exists(file_path):
-        with open(file_path, 'rb') as f:
-            content_type = 'text/html'
-            if path.endswith('.css'): content_type = 'text/css'
-            if path.endswith('.js'): content_type = 'application/javascript'
-            return HttpResponse(f.read(), content_type=content_type)
-    return HttpResponse("Not found", status=404)
-
-# PUBLIC TASK LIST — THIS SHOWS ALL TASKS
-# ALSO UPDATE public_task_list() TO SHOW CURRENT STRATEGY
-def public_task_list(request):
-    tasks = Task.objects.all().order_by('-id')
-    strategy = request.GET.get('strategy', 'smart_balance')  # Read from URL
-    
-    # Re-score tasks with current strategy
-    task_list = []
-    for t in tasks:
-        task_data = {
-            'id': t.id,
-            'title': t.title,
-            'due_date': t.due_date.isoformat() if t.due_date else None,
-            'estimated_hours': t.estimated_hours,
-            'importance': t.importance,
-            'dependencies': []
-        }
-        score_info = calculate_priority_score(task_data, strategy, [task_data])
-        task_list.append({
-            'task': t,
-            'score': score_info['score'],
-            'explanation': score_info['explanation']
-        })
-
-    return render(request, 'public_tasks.html', {
-        'tasks': task_list,
-        'strategy': strategy.title().replace('_', ' ')
-    })
+        return Response({"error": "Task not found"}, status=status.HTTP_404_NOT_FOUND)

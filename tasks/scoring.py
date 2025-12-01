@@ -1,93 +1,56 @@
-from datetime import date, timedelta
+from datetime import date
 import math
 
-STRATEGIES = {
-    "smart_balance": 0,
-    "fastest_wins": 1,
-    "high_impact": 2,
-    "deadline_driven": 3,
-}
-
-def calculate_priority_score(task_data, strategy="smart_balance", all_tasks=None):
-    """
-    Returns a score and explanation for a task.
-    Higher score = higher priority
-    """
+def calculate_priority_score(task, strategy="smart_balance", all_tasks=None):
     if all_tasks is None:
         all_tasks = []
 
-    task_id = task_data.get("id")
-    due_date_str = task_data.get("due_date")
-    importance = max(1, min(10, task_data.get("importance", 5)))
-    effort = max(1, task_data.get("estimated_hours", 1))
-    deps = task_data.get("dependencies", [])
-
     today = date.today()
-    explanation = []
-
-    # Parse due date
-    if due_date_str:
+    
+    # Fix: Convert string date to real date object
+    due_date_str = task.get("due_date")
+    if isinstance(due_date_str, str) and due_date_str:
+        from datetime import datetime
         try:
-            due_date = date.fromisoformat(due_date_str.replace("Z", ""))
-            days_until = (due_date - today).days
+            due_date = datetime.strptime(due_date_str, "%Y-%m-%d").date()
         except:
-            days_until = 999  # far future if invalid
-            explanation.append("Invalid due date → treated as not urgent")
+            due_date = None
     else:
-        days_until = 999
-        explanation.append("No due date → low urgency")
+        due_date = due_date_str  # already a date or None
 
-    urgency_score = 0
-    if days_until < 0:
-        urgency_score = 100 + abs(days_until) * 5
-        explanation.append(f"OVERDUE by {-days_until} days → massive boost")
-    elif days_until == 0:
-        urgency_score = 80
-        explanation.append("Due today → high urgency")
-    elif days_until <= 3:
-        urgency_score = 60 - days_until * 10
-        explanation.append(f"Due in {days_until} days → urgent")
-    elif days_until <= 7:
-        urgency_score = 30
-        explanation.append("Due this week")
+    importance = int(task.get("importance", 5))
+    effort = max(1, int(task.get("estimated_hours", 1)))
+    deps = task.get("dependencies", [])
 
-    # Dependency blocking score
-    blocking_score = 0
-    if all_tasks:
-        blocked_count = sum(1 for t in all_tasks if str(task_id) in t.get("dependencies", []))
-        if blocked_count > 0:
-            blocking_score = blocked_count * 30
-            explanation.append(f"Blocks {blocked_count} other task(s) → priority boost")
+    score = 0
 
-    # Base scores
-    importance_score = importance * 12
-    effort_score = max(1, 20 - effort * 3)  # lower effort = higher score
+    # 1. Urgency (highest weight)
+    if due_date:
+        days_left = (due_date - today).days
+        if days_left < 0:
+            score += 300 + abs(days_left) * 10  # Overdue = massive penalty
+        elif days_left == 0:
+            score += 200
+        elif days_left <= 3:
+            score += 120
+        else:
+            score += max(0, 80 - days_left)
+    else:
+        score += 20  # No due date = low urgency
 
-    # Strategy-specific weighting
-    strategy = strategy.lower()
-    if strategy == "fastest_wins":
-        score = effort_score * 5 + importance_score * 2 + urgency_score
-        explanation.insert(0, "Fastest Wins mode: low effort prioritized")
-    elif strategy == "high_impact":
-        score = importance_score * 8 + blocking_score * 2 + urgency_score
-        explanation.insert(0, "High Impact mode: importance dominates")
-    elif strategy == "deadline_driven":
-        score = urgency_score * 10 + importance_score * 2 + blocking_score
-        explanation.insert(0, "Deadline Driven: urgency first")
-    else:  # smart_balance (default)
-        score = (
-            urgency_score * 4 +
-            importance_score * 3 +
-            effort_score * 2 +
-            blocking_score * 3
-        )
-        explanation.insert(0, "Smart Balance: balanced factors")
+    # 2. Importance
+    score += importance * 15
 
-    # Overdue tasks always rise to top
-    if days_until < 0:
-        score += 1000
+    # 3. Quick wins
+    if effort <= 2:
+        score += 80
+    elif effort <= 4:
+        score += 40
 
-    return {
-        "score": round(score, 2),
-        "explanation": "; ".join(explanation) or "Standard priority"
-    }
+    # 4. Blocks others?
+    task_id = task.get("id")
+    if task_id and all_tasks:
+        blocked_count = sum(1 for t in all_tasks if task_id in (t.get("dependencies") or []))
+        score += blocked_count * 100
+
+    return round(score, 2)
