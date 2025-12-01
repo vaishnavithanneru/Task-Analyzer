@@ -11,7 +11,7 @@ SECRET_KEY = 'django-insecure-for-local-dev-only-12345'  # fine for this assignm
 
 DEBUG = True
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+ALLOWED_HOSTS = ['*']
 
 # === INSTALLED APPS (this is the part that was giving you trouble) ===
 INSTALLED_APPS = [
